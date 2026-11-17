@@ -235,3 +235,64 @@ async def delete_user(tg_id: int) -> None:
     """Delete a rejected profile and its per-user limits."""
     await execute("DELETE FROM user_limits WHERE user_id = ?", (tg_id,))
     await execute("DELETE FROM users WHERE tg_id = ?", (tg_id,))
+
+
+async def get_next_profile(viewer_id: int) -> dict[str, Any] | None:
+    """Find the next approved, unseen profile compatible with the viewer."""
+    viewer = await get_user(viewer_id)
+    if not viewer or not viewer["approved"] or viewer["banned"]:
+        return None
+    candidates = await fetch_all(
+        """
+        SELECT u.* FROM users u
+        WHERE u.tg_id != ?
+          AND u.city = ?
+          AND u.approved = 1
+          AND u.banned = 0
+          AND u.age_segment = ?
+          AND NOT EXISTS (
+              SELECT 1 FROM views v
+              WHERE v.user_id = ? AND v.target_id = u.tg_id
+          )
+        ORDER BY u.is_premium DESC, u.created_at DESC
+        """,
+        (viewer_id, viewer["city"], viewer["age_segment"], viewer_id),
+    )
+    from age_filter import are_ages_compatible
+    for candidate in candidates:
+        if are_ages_compatible(
+            int(viewer["age"]),
+            int(candidate["age"]),
+            teen_segment_enabled=False,
+            both_ages_verified=False,
+        ):
+            return candidate
+    return None
+
+
+async def has_liked(user_id: int, target_id: int) -> bool:
+    row = await fetch_one(
+        "SELECT 1 AS found FROM views WHERE user_id = ? AND target_id = ? AND action = 'like'",
+        (user_id, target_id),
+    )
+    return bool(row)
+
+
+async def get_user_like_limit(user_id: int) -> int:
+    row = await fetch_one(
+        "SELECT subscribed FROM user_limits WHERE user_id = ?",
+        (user_id,),
+    )
+    return 100 if row and row["subscribed"] else 10
+
+
+async def get_match_profile_ids(user_id: int) -> list[int]:
+    rows = await fetch_all(
+        """
+        SELECT CASE WHEN user1 = ? THEN user2 ELSE user1 END AS other_id
+        FROM matches WHERE user1 = ? OR user2 = ?
+        ORDER BY created_at DESC
+        """,
+        (user_id, user_id, user_id),
+    )
+    return [int(row["other_id"]) for row in rows]
