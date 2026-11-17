@@ -103,7 +103,8 @@ async def submit_report(message: Message, state: FSMContext) -> None:
             delivered = True
         except Exception:
             delivered = False
-    else:
+
+    if not delivered:
         for admin_id in settings.admin_ids:
             try:
                 await message.bot.send_photo(
