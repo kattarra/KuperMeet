@@ -229,3 +229,9 @@ async def increment_daily_likes(user_id: int, day: date) -> int:
         (user_id, day.isoformat()),
     )
     return await get_daily_like_count(user_id, day)
+
+
+async def delete_user(tg_id: int) -> None:
+    """Delete a rejected profile and its per-user limits."""
+    await execute("DELETE FROM user_limits WHERE user_id = ?", (tg_id,))
+    await execute("DELETE FROM users WHERE tg_id = ?", (tg_id,))
