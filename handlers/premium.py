@@ -9,8 +9,8 @@ from aiogram.types import (
 
 from config import settings
 from db import (
-    activate_premium,
     get_user,
+    register_premium_payment,
     set_channel_subscription,
 )
 from keyboards import premium_keyboard
@@ -178,16 +178,48 @@ async def successful_premium_payment(message: Message) -> None:
         )
         return
 
-    user = await get_user(message.from_user.id)
-    if not user or not user["approved"] or user["banned"]:
+    status = await register_premium_payment(
+        user_id=message.from_user.id,
+        telegram_charge_id=payment.telegram_payment_charge_id,
+        amount=payment.total_amount,
+        currency=payment.currency,
+    )
+
+    if status == "duplicate":
+        # Telegram may redeliver the same update; the original payment is already handled.
+        return
+
+    if status == "already_premium":
+        try:
+            await message.bot.refund_star_payment(
+                user_id=message.from_user.id,
+                telegram_payment_charge_id=payment.telegram_payment_charge_id,
+            )
+            await message.answer(
+                "У тебя уже был активен Premium, поэтому повторная оплата "
+                "автоматически возвращена. ⭐"
+            )
+        except Exception:
+            await message.answer(
+                "Похоже, Premium уже был активен до этой оплаты. "
+                "Не оплачивай повторно — напиши /paysupport, мы проверим возврат."
+            )
+        return
+
+    if status != "activated":
+        try:
+            await message.bot.refund_star_payment(
+                user_id=message.from_user.id,
+                telegram_payment_charge_id=payment.telegram_payment_charge_id,
+            )
+        except Exception:
+            pass
         await message.answer(
-            "Платёж получен, но профиль сейчас недоступен. "
-            "Обратись к администрации для проверки."
+            "Не удалось активировать Premium для этого профиля. "
+            "Если платёж списался, напиши /paysupport."
         )
         return
 
-    if not user["is_premium"]:
-        await activate_premium(message.from_user.id)
     await message.answer(
         "Оплата прошла успешно! ⭐\n\n"
         "KuperMeet Premium активирован навсегда. "
