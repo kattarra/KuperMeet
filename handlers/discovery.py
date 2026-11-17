@@ -34,6 +34,7 @@ async def send_next_profile(message: Message, viewer_id: int) -> None:
 
     caption = (
         f"{profile['name']}, {profile['age']}\n"
+        f"{'👨 Парень' if profile['gender'] == 'male' else '👩 Девушка'}\n"
         f"📍 {profile['city']}\n\n"
         f"{profile['bio'] or 'Пока ничего не рассказал(а) о себе.'}"
     )
