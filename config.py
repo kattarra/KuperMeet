@@ -27,8 +27,8 @@ class Settings:
     )
     channels: tuple[str, ...] = (
         os.getenv("CHANNEL_KUPERCOIN", ""),
-        os.getenv("CHANNEL_LUXDECOR", ""),
         os.getenv("CHANNEL_KUPERSHOP", ""),
+        os.getenv("CHANNEL_3", ""),
         os.getenv("CHANNEL_4", ""),
         os.getenv("CHANNEL_5", ""),
     )
