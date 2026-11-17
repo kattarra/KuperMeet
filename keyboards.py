@@ -33,6 +33,35 @@ def moderation_keyboard(tg_id: int) -> InlineKeyboardMarkup:
     ]])
 
 
+def edit_profile_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="✏️ Изменить имя", callback_data="profile:edit:name"),
+         InlineKeyboardButton(text="🎂 Изменить возраст", callback_data="profile:edit:age")],
+        [InlineKeyboardButton(text="👤 Изменить пол", callback_data="profile:edit:gender"),
+         InlineKeyboardButton(text="💜 Кого ищу", callback_data="profile:edit:looking_for")],
+        [InlineKeyboardButton(text="📍 Изменить город", callback_data="profile:edit:city")],
+        [InlineKeyboardButton(text="📝 Изменить описание", callback_data="profile:edit:bio")],
+        [InlineKeyboardButton(text="📸 Изменить фото", callback_data="profile:edit:photo")],
+    ])
+
+
+def edit_gender_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(text="👨 Парень", callback_data="profile:value:gender:male"),
+        InlineKeyboardButton(text="👩 Девушка", callback_data="profile:value:gender:female"),
+    ]])
+
+
+def edit_looking_for_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="👨 Парней", callback_data="profile:value:looking_for:male"),
+            InlineKeyboardButton(text="👩 Девушек", callback_data="profile:value:looking_for:female"),
+        ],
+        [InlineKeyboardButton(text="💜 Всех", callback_data="profile:value:looking_for:all")],
+    ])
+
+
 def delete_profile_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[[
         InlineKeyboardButton(text="🗑 Удалить анкету", callback_data="profile:delete")
