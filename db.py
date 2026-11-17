@@ -85,6 +85,14 @@ CREATE TABLE IF NOT EXISTS daily_likes (
     PRIMARY KEY (user_id, date)
 );
 
+CREATE TABLE IF NOT EXISTS premium_payments (
+    telegram_charge_id TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    amount INTEGER NOT NULL,
+    currency TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE INDEX IF NOT EXISTS idx_users_pool
     ON users(city, age_segment, approved, banned, is_premium);
 CREATE INDEX IF NOT EXISTS idx_views_target_action
@@ -473,3 +481,56 @@ async def resolve_report(report_id: int, status: str) -> bool:
         (status, report_id),
     )
     return True
+
+
+
+async def register_premium_payment(
+    user_id: int,
+    telegram_charge_id: str,
+    amount: int,
+    currency: str,
+) -> str:
+    """Atomically activate Premium once and make payment updates idempotent.
+
+    Returns 'activated', 'already_premium', 'duplicate', or 'unavailable'.
+    """
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("BEGIN IMMEDIATE")
+        existing = await db.execute(
+            "SELECT 1 FROM premium_payments WHERE telegram_charge_id = ?",
+            (telegram_charge_id,),
+        )
+        if await existing.fetchone():
+            await db.commit()
+            return "duplicate"
+
+        cursor = await db.execute(
+            "SELECT is_premium, approved, banned FROM users WHERE tg_id = ?",
+            (user_id,),
+        )
+        user = await cursor.fetchone()
+        if not user or not user[1] or user[2]:
+            await db.commit()
+            return "unavailable"
+        if user[0]:
+            await db.commit()
+            return "already_premium"
+
+        await db.execute(
+            """
+            INSERT INTO premium_payments
+                (telegram_charge_id, user_id, amount, currency)
+            VALUES (?, ?, ?, ?)
+            """,
+            (telegram_charge_id, user_id, amount, currency),
+        )
+        await db.execute(
+            """
+            UPDATE users SET is_premium = 1, premium_at = CURRENT_TIMESTAMP,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE tg_id = ?
+            """,
+            (user_id,),
+        )
+        await db.commit()
+        return "activated"
