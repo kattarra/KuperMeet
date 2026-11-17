@@ -61,10 +61,11 @@ async def my_profile(message: Message) -> None:
     if not user:
         await message.answer("Сначала создай анкету командой /start.")
         return
-    if user["banned"]:
-        await message.answer("Доступ к KuperMeet ограничен.")
-        return
-    status = "Одобрена ✅" if user["approved"] else "На модерации ⏳"
+    status = (
+        "Доступ ограничен ⛔" if user["banned"]
+        else "Одобрена ✅" if user["approved"]
+        else "На модерации ⏳"
+    )
     caption = (
         f"👤 {user['name']}, {user['age']}\n"
         f"📍 {user['city']}\n"
