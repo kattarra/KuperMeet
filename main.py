@@ -9,6 +9,7 @@ from handlers.moderation import router as moderation_router
 from handlers.discovery import router as discovery_router
 from handlers.messages import router as messages_router
 from handlers.reports import router as reports_router
+from handlers.premium import router as premium_router
 from handlers.registration import router as registration_router
 
 
@@ -25,6 +26,7 @@ async def main() -> None:
     dp.include_router(discovery_router)
     dp.include_router(messages_router)
     dp.include_router(reports_router)
+    dp.include_router(premium_router)
     dp.include_router(registration_router)
 
     await bot.delete_webhook(drop_pending_updates=True)
