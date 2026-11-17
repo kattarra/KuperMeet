@@ -39,3 +39,16 @@ def report_moderation_keyboard(report_id: int, target_id: int) -> InlineKeyboard
         InlineKeyboardButton(text="⛔ Заблокировать", callback_data=f"report:ban:{report_id}:{target_id}"),
         InlineKeyboardButton(text="🟢 Отклонить жалобу", callback_data=f"report:dismiss:{report_id}"),
     ]])
+
+
+def premium_keyboard(is_premium: bool = False) -> InlineKeyboardMarkup:
+    rows = [[InlineKeyboardButton(
+        text="🔎 Проверить подписки на 5 каналов",
+        callback_data="premium:check",
+    )]]
+    if not is_premium:
+        rows.append([InlineKeyboardButton(
+            text="⭐ Купить Premium — 299 Stars",
+            callback_data="premium:buy",
+        )])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
