@@ -68,6 +68,15 @@ def delete_profile_keyboard() -> InlineKeyboardMarkup:
     ]])
 
 
+def profile_management_keyboard() -> InlineKeyboardMarkup:
+    keyboard = edit_profile_keyboard().inline_keyboard
+    keyboard.append([InlineKeyboardButton(
+        text="🗑 Удалить анкету",
+        callback_data="profile:delete",
+    )])
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
+
+
 def confirm_delete_profile_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[[
         InlineKeyboardButton(text="Да, удалить", callback_data="profile:delete:confirm"),
