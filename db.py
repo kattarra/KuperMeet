@@ -203,6 +203,43 @@ async def update_user_preferences(tg_id: int, gender: str, looking_for: str) -> 
     )
 
 
+async def update_profile_field(tg_id: int, field: str, value: Any) -> None:
+    """Validate and update one user-editable profile field."""
+    allowed = {"name", "age", "gender", "looking_for", "city", "photo_id", "bio"}
+    if field not in allowed:
+        raise ValueError("Это поле нельзя изменить")
+    if field == "name":
+        value = str(value).strip()
+        if not value or len(value) > 30:
+            raise ValueError("Имя должно содержать от 1 до 30 символов")
+    elif field == "age":
+        if not isinstance(value, int) or not 18 <= value <= 99:
+            raise ValueError("Возраст должен быть от 18 до 99 лет")
+        await execute(
+            "UPDATE users SET age = ?, age_segment = 'adult', updated_at = CURRENT_TIMESTAMP WHERE tg_id = ?",
+            (value, tg_id),
+        )
+        return
+    elif field == "gender" and value not in {"male", "female"}:
+        raise ValueError("Выбери один из доступных вариантов")
+    elif field == "looking_for" and value not in {"male", "female", "all"}:
+        raise ValueError("Выбери один из доступных вариантов")
+    elif field == "city":
+        value = str(value).strip()
+        if not value or len(value) > 50:
+            raise ValueError("Название города должно содержать от 1 до 50 символов")
+    elif field == "bio":
+        value = str(value).strip()
+        if len(value) > 100:
+            raise ValueError("Описание — максимум 100 символов")
+    elif field == "photo_id" and not value:
+        raise ValueError("Не удалось получить фото. Отправь его ещё раз")
+    await execute(
+        f"UPDATE users SET {field} = ?, updated_at = CURRENT_TIMESTAMP WHERE tg_id = ?",
+        (value, tg_id),
+    )
+
+
 async def set_user_approved(tg_id: int, approved: bool) -> None:
     await execute(
         "UPDATE users SET approved = ?, updated_at = CURRENT_TIMESTAMP WHERE tg_id = ?",
