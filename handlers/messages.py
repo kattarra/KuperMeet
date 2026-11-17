@@ -88,6 +88,7 @@ async def send_intro_request(message: Message, state: FSMContext) -> None:
             reply_markup=message_request_keyboard(request_id),
         )
     except Exception:
+        await update_message_request(request_id, target_id, "rejected")
         await message.answer(
             "Не получилось доставить запрос. Возможно, пользователь ещё не запускал бота. "
             "Попробуй позже."
