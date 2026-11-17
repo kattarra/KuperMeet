@@ -27,15 +27,16 @@ def configured_channels() -> tuple[str, ...]:
         for channel in settings.channels
         if channel.strip() and "your_channel" not in channel.lower()
     )
-    # The benefit is explicitly tied to all five configured channels.
-    return channels if len(channels) == 5 and len(set(channels)) == 5 else ()
+    # Any currently configured Cooper ecosystem channels count; future
+    # channels can be added through environment variables without code changes.
+    return channels if channels and len(set(channels)) == len(channels) else ()
 
 
 async def refresh_channel_subscription(bot, user_id: int) -> bool:
-    """Check all five channels against Telegram and persist the result.
+    """Check every currently configured Cooper channel and persist the result.
 
     The bot must be an administrator in each channel for reliable membership
-    checks. Any missing channel or API error fails closed.
+    checks. Any API error fails closed.
     """
     channels = configured_channels()
     if not channels:
@@ -77,8 +78,8 @@ async def premium_page(message: Message) -> None:
             "299 Telegram Stars — единоразовая оплата, доступ навсегда.\n"
             "• 100 лайков в день\n"
             "• Приоритет в выдаче анкет\n\n"
-            "Либо подпишись на все пять каналов Kuper — это тоже откроет "
-            "100 лайков в день, пока подписки подтверждаются."
+            "Либо подпишись на все каналы экосистемы Cooper, подключённые "
+            "к KuperMeet, — это тоже откроет 100 лайков в день."
         )
     await message.answer(text, reply_markup=premium_keyboard(bool(user["is_premium"])))
 
@@ -98,7 +99,7 @@ async def check_channels(callback: CallbackQuery) -> None:
     if not channels:
         await set_channel_subscription(callback.from_user.id, False)
         await callback.answer(
-            "Администратор ещё не настроил все пять каналов.",
+            "Администратор ещё не подключил каналы Cooper.",
             show_alert=True,
         )
         return
@@ -109,12 +110,12 @@ async def check_channels(callback: CallbackQuery) -> None:
     )
     if is_subscribed:
         await callback.message.answer(
-            "Все пять подписок подтверждены! Теперь у тебя 100 лайков в день 💜"
+            "Подписки на все каналы Cooper подтверждены! Теперь у тебя 100 лайков в день 💜"
         )
         await callback.answer("Подписки подтверждены!")
     else:
         await callback.answer(
-            "Не вижу подписку на все пять каналов. Подпишись и проверь ещё раз.",
+            "Не вижу подписку на все подключённые каналы Cooper. Подпишись и проверь ещё раз.",
             show_alert=True,
         )
 
