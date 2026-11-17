@@ -23,6 +23,7 @@ def profile_keyboard(target_id: int) -> InlineKeyboardMarkup:
             InlineKeyboardButton(text="👎 Пропустить", callback_data=f"feed:skip:{target_id}"),
         ],
         [InlineKeyboardButton(text="✉️ Написать", callback_data=f"msg:compose:{target_id}")],
+        [InlineKeyboardButton(text="⚠️ Пожаловаться", callback_data=f"report:begin:{target_id}")],
     ])
 
 
@@ -30,4 +31,11 @@ def message_request_keyboard(message_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[[
         InlineKeyboardButton(text="✅ Принять", callback_data=f"msg:accept:{message_id}"),
         InlineKeyboardButton(text="❌ Отклонить", callback_data=f"msg:reject:{message_id}"),
+    ]])
+
+
+def report_moderation_keyboard(report_id: int, target_id: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(text="⛔ Заблокировать", callback_data=f"report:ban:{report_id}:{target_id}"),
+        InlineKeyboardButton(text="🟢 Отклонить жалобу", callback_data=f"report:dismiss:{report_id}"),
     ]])
