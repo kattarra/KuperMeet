@@ -24,6 +24,8 @@ CREATE TABLE IF NOT EXISTS users (
     name TEXT NOT NULL CHECK(length(name) <= 30),
     age INTEGER NOT NULL CHECK(age BETWEEN 14 AND 99),
     age_segment TEXT NOT NULL CHECK(age_segment IN ('teen', 'adult')),
+    gender TEXT CHECK(gender IN ('male', 'female')),
+    looking_for TEXT CHECK(looking_for IN ('male', 'female', 'all')),
     age_verified INTEGER NOT NULL DEFAULT 0 CHECK(age_verified IN (0, 1)),
     city TEXT NOT NULL DEFAULT 'Омск',
     photo_id TEXT NOT NULL,
@@ -117,6 +119,12 @@ async def init_db() -> None:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     async with aiosqlite.connect(DB_PATH) as db:
         await db.executescript(SCHEMA)
+        cursor = await db.execute("PRAGMA table_info(users)")
+        columns = {row[1] for row in await cursor.fetchall()}
+        if "gender" not in columns:
+            await db.execute("ALTER TABLE users ADD COLUMN gender TEXT")
+        if "looking_for" not in columns:
+            await db.execute("ALTER TABLE users ADD COLUMN looking_for TEXT")
         await db.commit()
 
 
@@ -151,6 +159,8 @@ async def create_user(
     username: str,
     name: str,
     age: int,
+    gender: str,
+    looking_for: str,
     city: str,
     photo_id: str,
     bio: str = "",
@@ -158,17 +168,21 @@ async def create_user(
     """Create an unapproved profile; moderators must approve it before discovery."""
     if not username:
         raise ValueError("Для регистрации необходим Telegram username")
+    if gender not in {"male", "female"}:
+        raise ValueError("Пол должен быть male или female")
+    if looking_for not in {"male", "female", "all"}:
+        raise ValueError("Некорректное предпочтение знакомств")
     if len(name) > 30 or len(bio) > 100:
         raise ValueError("Имя или описание превышает допустимую длину")
 
     await execute(
         """
         INSERT INTO users
-            (tg_id, username, name, age, age_segment, city, photo_id, bio)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            (tg_id, username, name, age, age_segment, gender, looking_for, city, photo_id, bio)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (tg_id, username.lstrip("@"), name.strip(), age, _age_segment(age),
-         city.strip() or "Омск", photo_id, bio.strip()),
+         gender, looking_for, city.strip() or "Омск", photo_id, bio.strip()),
     )
     await execute(
         "INSERT OR IGNORE INTO user_limits (user_id) VALUES (?)",
@@ -178,6 +192,15 @@ async def create_user(
 
 async def get_user(tg_id: int) -> dict[str, Any] | None:
     return await fetch_one("SELECT * FROM users WHERE tg_id = ?", (tg_id,))
+
+
+async def update_user_preferences(tg_id: int, gender: str, looking_for: str) -> None:
+    if gender not in {"male", "female"} or looking_for not in {"male", "female", "all"}:
+        raise ValueError("Некорректные настройки знакомств")
+    await execute(
+        "UPDATE users SET gender = ?, looking_for = ?, updated_at = CURRENT_TIMESTAMP WHERE tg_id = ?",
+        (gender, looking_for, tg_id),
+    )
 
 
 async def set_user_approved(tg_id: int, approved: bool) -> None:
@@ -266,13 +289,20 @@ async def get_next_profile(viewer_id: int) -> dict[str, Any] | None:
           AND u.approved = 1
           AND u.banned = 0
           AND u.age_segment = ?
+          AND u.gender IS NOT NULL
+          AND u.looking_for IS NOT NULL
+          AND (? = 'all' OR u.gender = ?)
+          AND (u.looking_for = 'all' OR u.looking_for = ?)
           AND NOT EXISTS (
               SELECT 1 FROM views v
               WHERE v.user_id = ? AND v.target_id = u.tg_id
           )
         ORDER BY u.is_premium DESC, u.created_at DESC
         """,
-        (viewer_id, viewer["city"], viewer["age_segment"], viewer_id),
+        (
+            viewer_id, viewer["city"], viewer["age_segment"],
+            viewer["looking_for"], viewer["looking_for"], viewer["gender"], viewer_id,
+        ),
     )
     from age_filter import are_ages_compatible
     for candidate in candidates:
@@ -360,6 +390,12 @@ async def create_message_request(from_id: int, to_id: int, text: str) -> int:
     if not sender["approved"] or sender["banned"] or not recipient["approved"] or recipient["banned"]:
         raise ValueError("Один из профилей недоступен")
     from age_filter import are_ages_compatible
+    from gender_filter import are_genders_compatible
+    if not are_genders_compatible(
+        sender.get("gender"), sender.get("looking_for"),
+        recipient.get("gender"), recipient.get("looking_for"),
+    ):
+        raise ValueError("Настройки знакомств не позволяют отправить запрос")
     if not are_ages_compatible(
         int(sender["age"]),
         int(recipient["age"]),
