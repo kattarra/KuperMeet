@@ -1,4 +1,5 @@
 from aiogram import F, Router
+from aiogram.filters import Command
 from aiogram.types import (
     CallbackQuery,
     LabeledPrice,
@@ -192,3 +193,53 @@ async def successful_premium_payment(message: Message) -> None:
         "KuperMeet Premium активирован навсегда. "
         "Теперь у тебя 100 лайков в день и приоритет в выдаче. 💜"
     )
+
+
+@router.message(Command("terms"))
+async def premium_terms(message: Message) -> None:
+    await message.answer(
+        "Условия KuperMeet Premium\n\n"
+        "1. Premium стоит 299 Telegram Stars и приобретается единоразово.\n"
+        "2. После подтверждения платежа доступ активируется бессрочно для "
+        "Telegram-аккаунта, с которого совершена оплата.\n"
+        "3. Premium предоставляет лимит до 100 лайков в сутки и приоритет "
+        "анкеты в выдаче.\n"
+        "4. Premium не гарантирует взаимные симпатии, сообщения или конкретное "
+        "количество просмотров.\n"
+        "5. При блокировке аккаунта за нарушение правил сервиса доступ к "
+        "функциям может быть ограничен.\n"
+        "6. По вопросам оплаты и возврата используй команду /paysupport."
+    )
+
+
+@router.message(Command("paysupport"))
+async def premium_payment_support(message: Message) -> None:
+    if not settings.admin_ids:
+        await message.answer(
+            "Поддержка платежей пока не настроена. Попробуй позже."
+        )
+        return
+
+    support_text = (
+        "🧾 Запрос по оплате KuperMeet Premium\n"
+        f"Пользователь: {message.from_user.full_name}\n"
+        f"Telegram ID: {message.from_user.id}\n"
+        f"Username: @{message.from_user.username or 'не указан'}\n\n"
+        f"Сообщение: {message.text or '/paysupport'}"
+    )
+    delivered = False
+    for admin_id in settings.admin_ids:
+        try:
+            await message.bot.send_message(admin_id, support_text)
+            delivered = True
+        except Exception:
+            continue
+
+    if delivered:
+        await message.answer(
+            "Запрос отправлен администрации. Мы проверим платёж и ответим тебе 💜"
+        )
+    else:
+        await message.answer(
+            "Не удалось связаться с поддержкой. Попробуй позже."
+        )
