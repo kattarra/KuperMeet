@@ -270,10 +270,26 @@ async def increment_daily_likes(user_id: int, day: date) -> int:
     return await get_daily_like_count(user_id, day)
 
 
-async def delete_user(tg_id: int) -> None:
-    """Delete a rejected profile and its per-user limits."""
-    await execute("DELETE FROM user_limits WHERE user_id = ?", (tg_id,))
-    await execute("DELETE FROM users WHERE tg_id = ?", (tg_id,))
+async def delete_user(tg_id: int) -> bool:
+    """Permanently delete a user's profile and related social activity atomically.
+
+    Premium payment records are retained as a minimal transaction ledger.
+    """
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("BEGIN IMMEDIATE")
+        cursor = await db.execute("SELECT 1 FROM users WHERE tg_id = ?", (tg_id,))
+        if not await cursor.fetchone():
+            await db.commit()
+            return False
+        await db.execute("DELETE FROM views WHERE user_id = ? OR target_id = ?", (tg_id, tg_id))
+        await db.execute("DELETE FROM matches WHERE user1 = ? OR user2 = ?", (tg_id, tg_id))
+        await db.execute("DELETE FROM messages WHERE from_id = ? OR to_id = ?", (tg_id, tg_id))
+        await db.execute("DELETE FROM reports WHERE reporter_id = ? OR target_id = ?", (tg_id, tg_id))
+        await db.execute("DELETE FROM daily_likes WHERE user_id = ?", (tg_id,))
+        await db.execute("DELETE FROM user_limits WHERE user_id = ?", (tg_id,))
+        await db.execute("DELETE FROM users WHERE tg_id = ?", (tg_id,))
+        await db.commit()
+        return True
 
 
 async def get_next_profile(viewer_id: int) -> dict[str, Any] | None:
