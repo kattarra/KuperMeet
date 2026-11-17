@@ -184,6 +184,14 @@ async def ban_user(tg_id: int) -> None:
         "UPDATE users SET banned = 1, approved = 0, updated_at = CURRENT_TIMESTAMP WHERE tg_id = ?",
         (tg_id,),
     )
+    await execute(
+        "UPDATE reports SET status = 'actioned' WHERE target_id = ? AND status = 'pending'",
+        (tg_id,),
+    )
+    await execute(
+        "UPDATE messages SET status = 'rejected' WHERE status = 'pending' AND (from_id = ? OR to_id = ?)",
+        (tg_id, tg_id),
+    )
 
 
 async def record_view(user_id: int, target_id: int, action: str) -> None:
