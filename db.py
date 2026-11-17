@@ -296,3 +296,65 @@ async def get_match_profile_ids(user_id: int) -> list[int]:
         (user_id, user_id, user_id),
     )
     return [int(row["other_id"]) for row in rows]
+
+
+async def create_message_request(from_id: int, to_id: int, text: str) -> int:
+    """Create one pending intro request, preventing duplicate pending requests."""
+    body = text.strip()
+    if not body or len(body) > 300:
+        raise ValueError("Сообщение должно содержать от 1 до 300 символов")
+    if from_id == to_id:
+        raise ValueError("Нельзя отправить сообщение самому себе")
+    sender = await get_user(from_id)
+    recipient = await get_user(to_id)
+    if not sender or not recipient:
+        raise ValueError("Профиль не найден")
+    if not sender["approved"] or sender["banned"] or not recipient["approved"] or recipient["banned"]:
+        raise ValueError("Один из профилей недоступен")
+    existing = await fetch_one(
+        """
+        SELECT id FROM messages
+        WHERE from_id = ? AND to_id = ? AND status = 'pending'
+        ORDER BY id DESC LIMIT 1
+        """,
+        (from_id, to_id),
+    )
+    if existing:
+        raise ValueError("У тебя уже есть ожидающий запрос этому пользователю")
+    return await execute(
+        "INSERT INTO messages (from_id, to_id, text) VALUES (?, ?, ?)",
+        (from_id, to_id, body),
+    )
+
+
+async def get_pending_message_requests(user_id: int) -> list[dict[str, Any]]:
+    return await fetch_all(
+        """
+        SELECT m.*, u.name AS sender_name, u.age AS sender_age,
+               u.city AS sender_city, u.username AS sender_username,
+               u.photo_id AS sender_photo
+        FROM messages m
+        JOIN users u ON u.tg_id = m.from_id
+        WHERE m.to_id = ? AND m.status = 'pending'
+          AND u.approved = 1 AND u.banned = 0
+        ORDER BY m.created_at DESC
+        """,
+        (user_id,),
+    )
+
+
+async def get_message_request(message_id: int) -> dict[str, Any] | None:
+    return await fetch_one("SELECT * FROM messages WHERE id = ?", (message_id,))
+
+
+async def update_message_request(message_id: int, recipient_id: int, status: str) -> bool:
+    if status not in {"accepted", "rejected"}:
+        raise ValueError("Недопустимый статус запроса")
+    changed = await execute(
+        """
+        UPDATE messages SET status = ?
+        WHERE id = ? AND to_id = ? AND status = 'pending'
+        """,
+        (status, message_id, recipient_id),
+    )
+    return changed > 0
