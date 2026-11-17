@@ -311,6 +311,14 @@ async def create_message_request(from_id: int, to_id: int, text: str) -> int:
         raise ValueError("Профиль не найден")
     if not sender["approved"] or sender["banned"] or not recipient["approved"] or recipient["banned"]:
         raise ValueError("Один из профилей недоступен")
+    from age_filter import are_ages_compatible
+    if not are_ages_compatible(
+        int(sender["age"]),
+        int(recipient["age"]),
+        teen_segment_enabled=False,
+        both_ages_verified=False,
+    ):
+        raise ValueError("Возрастная совместимость не позволяет отправить запрос")
     existing = await fetch_one(
         """
         SELECT id FROM messages
