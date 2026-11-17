@@ -33,6 +33,19 @@ def moderation_keyboard(tg_id: int) -> InlineKeyboardMarkup:
     ]])
 
 
+def delete_profile_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(text="🗑 Удалить анкету", callback_data="profile:delete")
+    ]])
+
+
+def confirm_delete_profile_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(text="Да, удалить", callback_data="profile:delete:confirm"),
+        InlineKeyboardButton(text="Отмена", callback_data="profile:delete:cancel"),
+    ]])
+
+
 def profile_keyboard(target_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [
