@@ -9,6 +9,23 @@ MAIN_MENU = ReplyKeyboardMarkup(
     resize_keyboard=True,
 )
 
+def registration_gender_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(text="👨 Парень", callback_data="reg:gender:male"),
+        InlineKeyboardButton(text="👩 Девушка", callback_data="reg:gender:female"),
+    ]])
+
+
+def registration_looking_for_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="👨 Парней", callback_data="reg:looking:male"),
+            InlineKeyboardButton(text="👩 Девушек", callback_data="reg:looking:female"),
+        ],
+        [InlineKeyboardButton(text="💜 Всех", callback_data="reg:looking:all")],
+    ])
+
+
 def moderation_keyboard(tg_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[[
         InlineKeyboardButton(text="✅ Одобрить", callback_data=f"mod:approve:{tg_id}"),
