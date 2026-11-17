@@ -28,7 +28,7 @@ def configured_channels() -> tuple[str, ...]:
         if channel.strip() and "your_channel" not in channel.lower()
     )
     # The benefit is explicitly tied to all five configured channels.
-    return channels if len(channels) == 5 else ()
+    return channels if len(channels) == 5 and len(set(channels)) == 5 else ()
 
 
 async def refresh_channel_subscription(bot, user_id: int) -> bool:
