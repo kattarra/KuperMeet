@@ -2,11 +2,11 @@ from aiogram import F, Router
 from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import Message
+from aiogram.types import CallbackQuery, Message
 
 from config import settings
-from db import create_user, get_user
-from keyboards import MAIN_MENU, moderation_keyboard
+from db import create_user, get_user, update_user_preferences
+from keyboards import MAIN_MENU, moderation_keyboard, registration_gender_keyboard, registration_looking_for_keyboard
 
 router = Router()
 
@@ -14,6 +14,8 @@ router = Router()
 class Registration(StatesGroup):
     name = State()
     age = State()
+    gender = State()
+    looking_for = State()
     city = State()
     photo = State()
     bio = State()
@@ -26,6 +28,12 @@ async def start(message: Message, state: FSMContext) -> None:
     if user:
         if user["banned"]:
             await message.answer("Доступ к KuperMeet ограничен.")
+        elif not user.get("gender") or not user.get("looking_for"):
+            await state.set_state(Registration.gender)
+            await message.answer(
+                "Добавим пару настроек к твоей анкете. Какой у тебя пол?",
+                reply_markup=registration_gender_keyboard(),
+            )
         elif user["approved"]:
             await message.answer(
                 f"С возвращением, {user['name']}! 💜",
@@ -76,8 +84,47 @@ async def get_age(message: Message, state: FSMContext) -> None:
         )
         return
     await state.update_data(age=age)
+    await state.set_state(Registration.gender)
+    await message.answer("Какой у тебя пол?", reply_markup=registration_gender_keyboard())
+
+
+@router.callback_query(Registration.gender, F.data.startswith("reg:gender:"))
+async def choose_gender(callback: CallbackQuery, state: FSMContext) -> None:
+    gender = (callback.data or "").rsplit(":", 1)[-1]
+    if gender not in {"male", "female"}:
+        await callback.answer("Выбери один из вариантов.", show_alert=True)
+        return
+    await state.update_data(gender=gender)
+    await state.set_state(Registration.looking_for)
+    await callback.answer()
+    await callback.message.answer(
+        "С кем хочешь знакомиться?",
+        reply_markup=registration_looking_for_keyboard(),
+    )
+
+
+@router.callback_query(Registration.looking_for, F.data.startswith("reg:looking:"))
+async def choose_looking_for(callback: CallbackQuery, state: FSMContext) -> None:
+    looking_for = (callback.data or "").rsplit(":", 1)[-1]
+    if looking_for not in {"male", "female", "all"}:
+        await callback.answer("Выбери один из вариантов.", show_alert=True)
+        return
+    data = await state.get_data()
+    existing = await get_user(callback.from_user.id)
+    if existing:
+        await update_user_preferences(callback.from_user.id, data["gender"], looking_for)
+        await state.clear()
+        await callback.answer("Настройки сохранены 💜")
+        if existing["approved"]:
+            await callback.message.answer("Готово! Настройки знакомств обновлены 💜", reply_markup=MAIN_MENU)
+        else:
+            await callback.message.answer("Настройки сохранены. Твоя анкета ожидает модерации 💜")
+        return
+
+    await state.update_data(looking_for=looking_for)
     await state.set_state(Registration.city)
-    await message.answer("Из какого ты города? Сейчас KuperMeet запускается в Омске.")
+    await callback.answer()
+    await callback.message.answer("Из какого ты города? Сейчас KuperMeet запускается в Омске.")
 
 
 @router.message(Registration.city)
@@ -120,6 +167,8 @@ async def get_bio(message: Message, state: FSMContext) -> None:
             username=message.from_user.username or "",
             name=data["name"],
             age=data["age"],
+            gender=data["gender"],
+            looking_for=data["looking_for"],
             city=data["city"],
             photo_id=data["photo_id"],
             bio=bio,
@@ -134,6 +183,8 @@ async def get_bio(message: Message, state: FSMContext) -> None:
         "🆕 Новая анкета на модерацию\n\n"
         f"Имя: {data['name']}\n"
         f"Возраст: {data['age']}\n"
+        f"Пол: {'Парень' if data['gender'] == 'male' else 'Девушка'}\n"
+        f"Ищет: {'парней' if data['looking_for'] == 'male' else 'девушек' if data['looking_for'] == 'female' else 'всех'}\n"
         f"Город: {data['city']}\n"
         f"Описание: {bio or '—'}\n"
         f"Telegram: @{message.from_user.username}\n"
