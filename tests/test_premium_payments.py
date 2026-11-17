@@ -16,6 +16,8 @@ class PremiumPaymentTests(unittest.IsolatedAsyncioTestCase):
             username="test_user",
             name="Test",
             age=25,
+            gender="male",
+            looking_for="all",
             city="Омск",
             photo_id="test-photo",
         )
