@@ -1,6 +1,9 @@
 from datetime import date
 
 from aiogram import F, Router
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import State, StatesGroup
+from aiogram.filters import Command
 from aiogram.types import CallbackQuery, Message
 
 from db import (
@@ -13,14 +16,21 @@ from db import (
     has_liked,
     increment_daily_likes,
     record_view,
+    update_profile_field,
 )
 from keyboards import (
     confirm_delete_profile_keyboard,
-    delete_profile_keyboard,
+    edit_gender_keyboard,
+    edit_looking_for_keyboard,
+    profile_management_keyboard,
     profile_keyboard,
 )
 
 router = Router()
+
+
+class ProfileEditing(StatesGroup):
+    value = State()
 
 
 async def send_next_profile(message: Message, viewer_id: int) -> None:
@@ -75,8 +85,112 @@ async def my_profile(message: Message) -> None:
     await message.answer_photo(
         photo=user["photo_id"],
         caption=caption,
-        reply_markup=delete_profile_keyboard(),
+        reply_markup=profile_management_keyboard(),
     )
+
+
+@router.callback_query(F.data.startswith("profile:edit:"))
+async def begin_profile_edit(callback: CallbackQuery, state: FSMContext) -> None:
+    user = await get_user(callback.from_user.id)
+    if not user:
+        await callback.answer("Анкета не найдена.", show_alert=True)
+        return
+    if user["banned"]:
+        await callback.answer("Изменение анкеты недоступно.", show_alert=True)
+        return
+    field = (callback.data or "").rsplit(":", 1)[-1]
+    prompts = {
+        "name": "Введи новое имя (от 1 до 30 символов).",
+        "age": "Введи новый возраст числом от 18 до 99 лет.",
+        "city": "Введи название города (до 50 символов).",
+        "bio": "Напиши новое описание (до 100 символов). Чтобы очистить описание, отправь «—».",
+        "photo": "Отправь новое фото как обычную фотографию, не файлом.",
+    }
+    if field == "gender":
+        await callback.answer()
+        await callback.message.answer("Выбери свой пол:", reply_markup=edit_gender_keyboard())
+        return
+    if field == "looking_for":
+        await callback.answer()
+        await callback.message.answer("С кем хочешь знакомиться?", reply_markup=edit_looking_for_keyboard())
+        return
+    if field not in prompts:
+        await callback.answer("Неизвестное поле.", show_alert=True)
+        return
+    await state.set_state(ProfileEditing.value)
+    await state.update_data(edit_field=field)
+    await callback.answer()
+    await callback.message.answer(prompts[field])
+
+
+@router.callback_query(F.data.startswith("profile:value:"))
+async def set_profile_choice(callback: CallbackQuery) -> None:
+    try:
+        _, _, field, value = (callback.data or "").split(":", 3)
+    except ValueError:
+        await callback.answer("Не удалось сохранить настройку.", show_alert=True)
+        return
+    if field == "gender" and value not in {"male", "female"}:
+        await callback.answer("Некорректный вариант.", show_alert=True)
+        return
+    if field == "looking_for" and value not in {"male", "female", "all"}:
+        await callback.answer("Некорректный вариант.", show_alert=True)
+        return
+    if field not in {"gender", "looking_for"}:
+        await callback.answer("Неизвестная настройка.", show_alert=True)
+        return
+    user = await get_user(callback.from_user.id)
+    if not user or user["banned"]:
+        await callback.answer("Анкета недоступна.", show_alert=True)
+        return
+    await update_profile_field(callback.from_user.id, field, value)
+    await callback.answer("Сохранено 💜")
+    await callback.message.answer("Настройки анкеты обновлены 💜")
+
+
+@router.message(ProfileEditing.value, Command("cancel"))
+async def cancel_profile_edit(message: Message, state: FSMContext) -> None:
+    await state.clear()
+    await message.answer("Изменение отменено.")
+
+
+@router.message(ProfileEditing.value)
+async def save_profile_edit(message: Message, state: FSMContext) -> None:
+    data = await state.get_data()
+    field = data.get("edit_field")
+    user = await get_user(message.from_user.id)
+    if not user or user["banned"]:
+        await state.clear()
+        await message.answer("Анкета недоступна.")
+        return
+
+    if field == "photo":
+        if not message.photo:
+            await message.answer("Отправь именно фотографию или /cancel для отмены.")
+            return
+        value = message.photo[-1].file_id
+    else:
+        raw = (message.text or "").strip()
+        if not raw:
+            await message.answer("Отправь текстовое значение или /cancel для отмены.")
+            return
+        if field == "age":
+            if not raw.isdigit():
+                await message.answer("Возраст нужно указать числом от 18 до 99.")
+                return
+            value = int(raw)
+        elif field == "bio" and raw == "—":
+            value = ""
+        else:
+            value = raw
+
+    try:
+        await update_profile_field(message.from_user.id, field, value)
+    except ValueError as error:
+        await message.answer(f"{error}. Попробуй ещё раз или отправь /cancel.")
+        return
+    await state.clear()
+    await message.answer("Готово! Данные анкеты обновлены 💜")
 
 
 @router.callback_query(F.data == "profile:delete")
