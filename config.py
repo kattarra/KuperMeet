@@ -1,5 +1,5 @@
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -20,7 +20,7 @@ def _parse_ids(raw: str) -> set[int]:
 @dataclass(frozen=True)
 class Settings:
     bot_token: str = os.getenv("BOT_TOKEN", "")
-    admin_ids: set[int] = _parse_ids(os.getenv("ADMIN_IDS", ""))
+    admin_ids: set[int] = field(default_factory=lambda: _parse_ids(os.getenv("ADMIN_IDS", "")))
     enable_teen_segment: bool = os.getenv("ENABLE_TEEN_SEGMENT", "false").lower() == "true"
     teen_age_verification_enabled: bool = (
         os.getenv("TEEN_AGE_VERIFICATION_ENABLED", "false").lower() == "true"
