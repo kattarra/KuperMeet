@@ -372,3 +372,64 @@ async def update_message_request(message_id: int, recipient_id: int, status: str
         (status, message_id, recipient_id),
     )
     return True
+
+
+async def create_report(reporter_id: int, target_id: int, reason: str) -> int:
+    body = reason.strip()
+    if not body or len(body) > 200:
+        raise ValueError("Причина жалобы должна содержать от 1 до 200 символов")
+    if reporter_id == target_id:
+        raise ValueError("Нельзя пожаловаться на собственную анкету")
+    reporter = await get_user(reporter_id)
+    target = await get_user(target_id)
+    if not reporter or not target:
+        raise ValueError("Анкета не найдена")
+    if not reporter["approved"] or reporter["banned"]:
+        raise ValueError("Отправлять жалобы можно только с активной анкеты")
+    if not target["approved"] or target["banned"]:
+        raise ValueError("Эта анкета больше недоступна")
+    pending = await fetch_one(
+        """
+        SELECT id FROM reports
+        WHERE reporter_id = ? AND target_id = ? AND status = 'pending'
+        LIMIT 1
+        """,
+        (reporter_id, target_id),
+    )
+    if pending:
+        raise ValueError("Ты уже отправил(а) жалобу на эту анкету")
+    return await execute(
+        "INSERT INTO reports (reporter_id, target_id, reason) VALUES (?, ?, ?)",
+        (reporter_id, target_id, body),
+    )
+
+
+async def get_report(report_id: int) -> dict[str, Any] | None:
+    return await fetch_one(
+        """
+        SELECT r.*, reporter.name AS reporter_name,
+               target.name AS target_name, target.age AS target_age,
+               target.username AS target_username, target.photo_id AS target_photo
+        FROM reports r
+        JOIN users reporter ON reporter.tg_id = r.reporter_id
+        JOIN users target ON target.tg_id = r.target_id
+        WHERE r.id = ?
+        """,
+        (report_id,),
+    )
+
+
+async def resolve_report(report_id: int, status: str) -> bool:
+    if status not in {"dismissed", "actioned"}:
+        raise ValueError("Недопустимый статус жалобы")
+    current = await fetch_one(
+        "SELECT id FROM reports WHERE id = ? AND status = 'pending'",
+        (report_id,),
+    )
+    if not current:
+        return False
+    await execute(
+        "UPDATE reports SET status = ? WHERE id = ? AND status = 'pending'",
+        (status, report_id),
+    )
+    return True
