@@ -95,8 +95,9 @@ async def react_to_profile(callback: CallbackQuery) -> None:
 
     if action == "like":
         today = date.today()
-        from handlers.premium import refresh_channel_subscription
-        await refresh_channel_subscription(callback.bot, viewer_id)
+        if not viewer["is_premium"]:
+            from handlers.premium import refresh_channel_subscription
+            await refresh_channel_subscription(callback.bot, viewer_id)
         limit = await get_user_like_limit(viewer_id)
         used = await get_daily_like_count(viewer_id, today)
         if used >= limit:
