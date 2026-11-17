@@ -5,6 +5,8 @@ from aiogram import Bot, Dispatcher
 
 from config import settings
 from db import init_db
+from handlers.moderation import router as moderation_router
+from handlers.registration import router as registration_router
 
 
 async def main() -> None:
@@ -16,8 +18,9 @@ async def main() -> None:
 
     bot = Bot(token=settings.bot_token)
     dp = Dispatcher()
+    dp.include_router(moderation_router)
+    dp.include_router(registration_router)
 
-    # Routers will be registered here as the MVP modules are added.
     await bot.delete_webhook(drop_pending_updates=True)
     try:
         await dp.start_polling(bot)
