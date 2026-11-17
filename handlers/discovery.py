@@ -94,6 +94,16 @@ async def react_to_profile(callback: CallbackQuery) -> None:
         await callback.message.edit_reply_markup(reply_markup=None)
         return
 
+    from gender_filter import are_genders_compatible
+    if not are_genders_compatible(
+        viewer.get("gender"), viewer.get("looking_for"),
+        target.get("gender"), target.get("looking_for"),
+    ):
+        await callback.answer("Эти анкеты не подходят друг другу по настройкам.", show_alert=True)
+        await callback.message.edit_reply_markup(reply_markup=None)
+        await send_next_profile(callback.message, viewer_id)
+        return
+
     if action == "like":
         today = date.today()
         if not viewer["is_premium"]:
