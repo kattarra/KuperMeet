@@ -4,6 +4,7 @@ import logging
 from aiogram import Bot, Dispatcher
 
 from config import settings
+from db import init_db
 
 
 async def main() -> None:
@@ -11,6 +12,8 @@ async def main() -> None:
         raise RuntimeError("BOT_TOKEN is missing. Copy .env.example to .env and set your token.")
 
     logging.basicConfig(level=logging.INFO)
+    await init_db()
+
     bot = Bot(token=settings.bot_token)
     dp = Dispatcher()
 
