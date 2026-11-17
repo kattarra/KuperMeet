@@ -1,6 +1,6 @@
 # KuperMeet — запуск на PythonAnywhere
 
-Этот проект работает через Telegram long polling: веб-сервер и домен не нужны.
+Этот проект работает через Telegram long polling: веб-сервер и домен не нужны. Для постоянной работы на PythonAnywhere нужен платный тариф: Always-on tasks доступны платным аккаунтам, а исходящий интернет без allowlist-ограничений также предоставляется на платных тарифах.
 
 ## 1. Подготовить Telegram
 
@@ -69,7 +69,7 @@ python main.py
 
 ## 4. Постоянная работа
 
-Для long polling нужен постоянно работающий процесс. В панели PythonAnywhere создай Always-on task (если эта функция доступна на твоём тарифе) с командой:
+Для long polling нужен постоянно работающий процесс. В панели PythonAnywhere на платном тарифе создай Always-on task с командой:
 
 ```bash
 cd /home/ТВОЙ_USERNAME/KuperMeet && /home/ТВОЙ_USERNAME/KuperMeet/.venv/bin/python /home/ТВОЙ_USERNAME/KuperMeet/main.py
