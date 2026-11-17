@@ -350,11 +350,17 @@ async def get_message_request(message_id: int) -> dict[str, Any] | None:
 async def update_message_request(message_id: int, recipient_id: int, status: str) -> bool:
     if status not in {"accepted", "rejected"}:
         raise ValueError("Недопустимый статус запроса")
-    changed = await execute(
+    current = await fetch_one(
+        "SELECT id FROM messages WHERE id = ? AND to_id = ? AND status = 'pending'",
+        (message_id, recipient_id),
+    )
+    if not current:
+        return False
+    await execute(
         """
         UPDATE messages SET status = ?
         WHERE id = ? AND to_id = ? AND status = 'pending'
         """,
         (status, message_id, recipient_id),
     )
-    return changed > 0
+    return True
