@@ -5,6 +5,7 @@ from aiogram.types import CallbackQuery, Message
 
 from db import (
     create_match,
+    delete_user,
     get_daily_like_count,
     get_next_profile,
     get_user,
@@ -13,7 +14,11 @@ from db import (
     increment_daily_likes,
     record_view,
 )
-from keyboards import profile_keyboard
+from keyboards import (
+    confirm_delete_profile_keyboard,
+    delete_profile_keyboard,
+    profile_keyboard,
+)
 
 router = Router()
 
@@ -66,7 +71,45 @@ async def my_profile(message: Message) -> None:
         f"Статус: {status}\n\n"
         f"{user['bio'] or 'Описание не добавлено.'}"
     )
-    await message.answer_photo(photo=user["photo_id"], caption=caption)
+    await message.answer_photo(
+        photo=user["photo_id"],
+        caption=caption,
+        reply_markup=delete_profile_keyboard(),
+    )
+
+
+@router.callback_query(F.data == "profile:delete")
+async def request_profile_deletion(callback: CallbackQuery) -> None:
+    user = await get_user(callback.from_user.id)
+    if not user:
+        await callback.answer("Анкета уже удалена.", show_alert=True)
+        return
+    await callback.answer()
+    await callback.message.answer(
+        "⚠️ Удалить анкету без возможности восстановления?\n\n"
+        "Твой профиль исчезнет из поиска. Также удалятся лайки, совпадения, "
+        "запросы на знакомство и жалобы, связанные с анкетой. "
+        "Платёжные записи Premium сохраняются для учёта платежей.",
+        reply_markup=confirm_delete_profile_keyboard(),
+    )
+
+
+@router.callback_query(F.data == "profile:delete:cancel")
+async def cancel_profile_deletion(callback: CallbackQuery) -> None:
+    await callback.answer("Удаление отменено.")
+    await callback.message.edit_reply_markup(reply_markup=None)
+
+
+@router.callback_query(F.data == "profile:delete:confirm")
+async def confirm_profile_deletion(callback: CallbackQuery) -> None:
+    deleted = await delete_user(callback.from_user.id)
+    await callback.answer("Анкета удалена." if deleted else "Анкета уже удалена.")
+    await callback.message.edit_reply_markup(reply_markup=None)
+    if deleted:
+        await callback.message.answer(
+            "Твоя анкета и связанные действия удалены. 💜\n"
+            "Если захочешь вернуться — нажми /start."
+        )
 
 
 @router.callback_query(F.data.startswith("feed:"))
