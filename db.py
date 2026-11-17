@@ -286,12 +286,44 @@ async def has_liked(user_id: int, target_id: int) -> bool:
     return bool(row)
 
 
-async def get_user_like_limit(user_id: int) -> int:
-    row = await fetch_one(
-        "SELECT subscribed FROM user_limits WHERE user_id = ?",
+async def set_channel_subscription(user_id: int, subscribed: bool) -> None:
+    await execute(
+        """
+        INSERT INTO user_limits (user_id, subscribed, subscribed_at)
+        VALUES (?, ?, CASE WHEN ? = 1 THEN CURRENT_TIMESTAMP ELSE NULL END)
+        ON CONFLICT(user_id) DO UPDATE SET
+            subscribed = excluded.subscribed,
+            subscribed_at = CASE
+                WHEN excluded.subscribed = 1 THEN CURRENT_TIMESTAMP
+                ELSE NULL
+            END
+        """,
+        (user_id, int(subscribed), int(subscribed)),
+    )
+
+
+async def activate_premium(user_id: int) -> None:
+    await execute(
+        """
+        UPDATE users SET is_premium = 1, premium_at = CURRENT_TIMESTAMP,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE tg_id = ?
+        """,
         (user_id,),
     )
-    return 100 if row and row["subscribed"] else 10
+
+
+async def get_user_like_limit(user_id: int) -> int:
+    row = await fetch_one(
+        """
+        SELECT u.is_premium, COALESCE(l.subscribed, 0) AS subscribed
+        FROM users u
+        LEFT JOIN user_limits l ON l.user_id = u.tg_id
+        WHERE u.tg_id = ?
+        """,
+        (user_id,),
+    )
+    return 100 if row and (row["is_premium"] or row["subscribed"]) else 10
 
 
 async def get_match_profile_ids(user_id: int) -> list[int]:
