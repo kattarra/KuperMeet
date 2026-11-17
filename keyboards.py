@@ -14,3 +14,10 @@ def moderation_keyboard(tg_id: int) -> InlineKeyboardMarkup:
         InlineKeyboardButton(text="✅ Одобрить", callback_data=f"mod:approve:{tg_id}"),
         InlineKeyboardButton(text="❌ Отклонить", callback_data=f"mod:reject:{tg_id}"),
     ]])
+
+
+def profile_keyboard(target_id: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(text="❤️ Нравится", callback_data=f"feed:like:{target_id}"),
+        InlineKeyboardButton(text="👎 Пропустить", callback_data=f"feed:skip:{target_id}"),
+    ]])
