@@ -21,3 +21,20 @@ def profile_keyboard(target_id: int) -> InlineKeyboardMarkup:
         InlineKeyboardButton(text="❤️ Нравится", callback_data=f"feed:like:{target_id}"),
         InlineKeyboardButton(text="👎 Пропустить", callback_data=f"feed:skip:{target_id}"),
     ]])
+
+
+def profile_keyboard(target_id: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="❤️ Нравится", callback_data=f"feed:like:{target_id}"),
+            InlineKeyboardButton(text="👎 Пропустить", callback_data=f"feed:skip:{target_id}"),
+        ],
+        [InlineKeyboardButton(text="✉️ Написать", callback_data=f"msg:compose:{target_id}")],
+    ])
+
+
+def message_request_keyboard(message_id: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(text="✅ Принять", callback_data=f"msg:accept:{message_id}"),
+        InlineKeyboardButton(text="❌ Отклонить", callback_data=f"msg:reject:{message_id}"),
+    ]])
